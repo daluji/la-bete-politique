@@ -18,64 +18,150 @@ interface IFilters {
   filteredDeputes?: Deputy.DeputiesList
 }
 
-export default function Filters(props: IFilters) {
-  const { state, handleSearch, handleGroupClick, handleSexClick, handleAgeSlider, handleReset } = useDeputiesFilters()
+interface IGroupButton {
+  group: Group.Group
+  onClick(arg: string): void
+  checked?: boolean
+  children?: React.ReactNode
+}
 
-  const { filteredDeputes = state.FilteredList } = props
+interface ISexButton {
+  sex: "H" | "F"
+  onClick(): void
+  checked?: boolean
+  children?: React.ReactNode
+}
 
+interface IResetButton extends React.DetailedHTMLProps<React.ButtonHTMLAttributes<HTMLButtonElement>, HTMLButtonElement> {
+  onClick(): void
+}
+
+interface ISearchForm {
+  keyword?: string
+  search?: {
+    (arg: string): void
+    flush(): void
+  }
+}
+
+export const ResetButton = (props: IResetButton) => {
+  const { onClick, className = "reset__btn", title = "Réinitialiser les filtres", ...restProps } = props
+
+  return (
+    <Button className={className} title={title} onClick={() => onClick()} {...restProps}>
+      <div className="icon-wrapper">
+        <IconReset />
+      </div>
+    </Button>
+  )
+}
+
+export const GroupButton = (props: IGroupButton) => {
+  const { checked = true, group, onClick, children, ...restProps } = props
+  const GroupeLogo = getGroupLogo(group.Sigle)
+
+  return (
+    <ButtonInput
+      key={`groupe--${group.Sigle}`}
+      className={`groupe--${group.Sigle.toLowerCase()}`}
+      category="groupe"
+      style={{
+        order: group.Ordre,
+        borderColor: group.Couleur,
+        backgroundColor: group.Couleur,
+      }}
+      color={group.Couleur}
+      onClick={() => onClick(group.Sigle)}
+      type="checkbox"
+      checked={checked}
+    >
+      <div className="groupe__img-container">
+        <div className="icon-wrapper">
+          <GroupeLogo style={{ fill: group.Couleur }} />
+        </div>
+      </div>
+      {children}
+    </ButtonInput>
+  )
+}
+
+export const SearchForm = ({ keyword, search }: ISearchForm) => {
   const [isSearchInteracted, setIsSearchInteracted] = useState(false)
   const [value, setValue] = useState("")
+
   const searchField = useRef<HTMLInputElement>()
 
   useEffect(() => {
-    setValue(state.Keyword)
-  }, [state.Keyword])
-
-  const groupButtons = state.GroupesList.map((groupe) => {
-    const GroupeLogo = getGroupLogo(groupe.Sigle)
-    return (
-      <ButtonInput
-        className={`groupe groupe--${groupe.Sigle.toLowerCase()}`}
-        key={`groupe--${groupe.Sigle}`}
-        style={{
-          order: groupe.Ordre,
-          borderColor: groupe.Couleur,
-          backgroundColor: groupe.Couleur,
-        }}
-        color={groupe.Couleur}
-        onClick={() => handleGroupClick(groupe.Sigle)}
-        type="checkbox"
-        checked={state.GroupeValue[groupe.Sigle]}
-      >
-        <div className="groupe__img-container">
-          <div className="icon-wrapper">
-            <GroupeLogo style={{ fill: groupe.Couleur }} />
-          </div>
-        </div>
-        <Tooltip
-          title={groupe.NomComplet}
-          nbDeputes={getNbDeputiesGroup(filteredDeputes, groupe.Sigle)}
-          totalDeputes={filteredDeputes.length}
-          color={groupe.Couleur}
-        />
-      </ButtonInput>
-    )
-  })
+    setValue(keyword)
+  }, [keyword])
 
   /**
    * Pour update les différents states de la recherche
    * @param {string} [value] Reset le state si la valeur manque
    */
-  const handleTextInput = useCallback((value?: string) => {
-    if (value && value.length > 0) {
-      handleSearch(value)
-      setValue(value)
-    } else {
-      handleSearch("")
-      handleSearch.flush()
-      setValue("")
-    }
-  }, [])
+  const handleTextInput = search
+    ? useCallback((value?: string) => {
+        if (value && value.length > 0) {
+          search(value)
+          setValue(value)
+        } else {
+          search("")
+          search.flush()
+          setValue("")
+        }
+      }, [])
+    : setValue
+
+  return (
+    <form
+      className={`filters__search ${isSearchInteracted ? "filters__search--focus" : ""}`}
+      onSubmit={(e) => {
+        e.preventDefault()
+        searchField.current.blur()
+      }}
+    >
+      <div className="search__icon icon-wrapper">
+        <IconSearch />
+      </div>
+      <input
+        className="search__input"
+        ref={searchField}
+        type="text"
+        placeholder="Chercher..."
+        value={value}
+        onChange={(e) => handleTextInput(e.target.value)}
+        onFocus={() => setIsSearchInteracted(true)}
+        onBlur={() => setIsSearchInteracted(false)}
+      />
+      <div className={`search__clear ${value.length > 0 ? "search__clear--visible" : ""}`}>
+        <input className="search__clear-btn" type="reset" value="" title="Effacer" onClick={() => handleTextInput("")} />
+        <div className="icon-wrapper">
+          <IconClose />
+        </div>
+      </div>
+    </form>
+  )
+}
+
+export const SexButton = (props: ISexButton) => {
+  const { sex, onClick, checked, children } = props
+  const gender = sex === "F" ? "female" : "male"
+
+  return (
+    <Button
+      className={`sexes__btn ${gender} ${checked ? "checked" : ""}`}
+      onClick={onClick}
+      color={`${sex === "F" ? "main" : "secondary"}`}
+    >
+      <div className={`sexe__icon--${gender}-symbol icon-wrapper`}>{sex === "F" ? <IconFemaleSymbol /> : <IconMaleSymbol />}</div>
+      {children}
+    </Button>
+  )
+}
+
+export default function Filters(props: IFilters) {
+  const { state, handleSearch, handleGroupClick, handleSexClick, handleAgeSlider, handleReset } = useDeputiesFilters()
+  const { filteredDeputes = state.FilteredList } = props
 
   return (
     <Frame
@@ -86,74 +172,46 @@ export default function Filters(props: IFilters) {
         ${Math.round(((filteredDeputes.length * 100) / state.DeputiesList.length) * 10) / 10}%
       `}
     >
-      <form
-        className={`filters__search ${isSearchInteracted ? "filters__search--focus" : ""}`}
-        onSubmit={(e) => {
-          e.preventDefault()
-          searchField.current.blur()
-        }}
-      >
-        <div className="search__icon icon-wrapper">
-          <IconSearch />
-        </div>
-        <input
-          className="search__input"
-          ref={searchField}
-          type="text"
-          placeholder="Chercher..."
-          value={value}
-          onChange={(e) => handleTextInput(e.target.value)}
-          onFocus={() => setIsSearchInteracted(true)}
-          onBlur={() => setIsSearchInteracted(false)}
-        />
-        <div className={`search__clear ${state.Keyword.length > 0 ? "search__clear--visible" : ""}`}>
-          <input className="search__clear-btn" type="reset" value="" title="Effacer" onClick={() => handleTextInput()} />
-          <div className="icon-wrapper">
-            <IconClose />
-          </div>
-        </div>
-      </form>
+      <SearchForm keyword={state.Keyword} search={handleSearch} />
       <div className="filters__middle-line">
         <div className="filters__sexes">
-          <Button
-            className={`sexes__btn female ${state.SexValue["F"] ? "checked" : ""}`}
-            onClick={() => handleSexClick("F")}
-            color="main"
-            checked={state.SexValue.F}
-          >
-            <div className="sexe__icon--female-symbol icon-wrapper">
-              <IconFemaleSymbol />
-            </div>
+          <SexButton sex={"F"} onClick={() => handleSexClick("F")} checked={state.SexValue["F"]}>
             <Tooltip
               title="Femmes"
               nbDeputes={getNbDeputiesGender(filteredDeputes, "F")}
               totalDeputes={filteredDeputes.length}
               color="secondary"
             />
-          </Button>
-          <Button
-            className={`sexes__btn male ${state.SexValue["H"] ? "checked" : ""}`}
-            onClick={(e) => handleSexClick("H")}
-            color="secondary"
-            checked={state.SexValue.H}
-          >
-            <div className="sexe__icon--male-symbol icon-wrapper">
-              <IconMaleSymbol />
-            </div>
+          </SexButton>
+          <SexButton sex={"H"} onClick={() => handleSexClick("H")} checked={state.SexValue["H"]}>
             <Tooltip
               title="Hommes"
               nbDeputes={getNbDeputiesGender(filteredDeputes, "H")}
               totalDeputes={filteredDeputes.length}
               color="secondary"
             />
-          </Button>
+          </SexButton>
         </div>
-        <div className="filters__groupe">{groupButtons}</div>
-        <Button className="reset__btn" onClick={() => handleReset()} title="Réinitialiser les filtres">
-          <div className="icon-wrapper">
-            <IconReset />
-          </div>
-        </Button>
+        <div className="filters__groupe">
+          {state.GroupesList.map((groupe) => {
+            return (
+              <GroupButton
+                key={`groupe--${groupe.Sigle}`}
+                group={groupe}
+                onClick={handleGroupClick}
+                checked={state.GroupeValue[groupe.Sigle]}
+              >
+                <Tooltip
+                  title={groupe.NomComplet}
+                  nbDeputes={getNbDeputiesGroup(filteredDeputes, groupe.Sigle)}
+                  totalDeputes={filteredDeputes.length}
+                  color={groupe.Couleur}
+                />
+              </GroupButton>
+            )
+          })}
+        </div>
+        <ResetButton onClick={handleReset} />
       </div>
       <AgeSlider selectedDomain={state.AgeDomain} domain={getAgeDomain(state.DeputiesList)} callback={handleAgeSlider}>
         <span className="filters__slider-label">ÂGE</span>
