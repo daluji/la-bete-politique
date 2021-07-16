@@ -1,0 +1,13 @@
+.block__feed {
+  .twitter-timeline {
+    margin-top: -20px !important;
+    margin-bottom: 20px !important;
+  }
+  .feed {
+    &__right {
+      position: absolute;
+      background: transparent;
+      right: 25px;
+    }
+  }
+}
